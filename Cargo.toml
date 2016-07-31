@@ -1,0 +1,10 @@
+[package]
+name = "bbman"
+version = "0.0.1"
+authors = ["Matheus Borella (DarkRyu550) <dark.ryu.550@gmail.com>"]
+
+[dependencies]
+glium  = "*"
+cgmath = "*"
+json   = "*"
+image  = "*" 
