@@ -232,7 +232,7 @@ fn spritesheet(){
 	use image;
 
 	// Decode the image to RGBA
-	let buffer = image::open("res/test/sheet.png").unwrap().to_rgba();
+	let buffer = image::open("test/sheet.png").unwrap().to_rgba();
 
 	use std::borrow::Cow;
 	use glium::texture::{RawImage2d, ClientFormat};

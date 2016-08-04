@@ -3,8 +3,12 @@ name = "bbman"
 version = "0.0.1"
 authors = ["Matheus Borella (DarkRyu550) <dark.ryu.550@gmail.com>"]
 
+[lib]
+name = "bbman"
+path = "src/lib.rs"
+
 [dependencies]
 glium  = "*"
 cgmath = "*"
 json   = "*"
-image  = "*" 
+image  = "*"

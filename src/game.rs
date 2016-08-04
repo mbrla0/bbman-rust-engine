@@ -17,17 +17,24 @@ pub trait Scene{
 	fn pause(&mut self,     _: &mut Game) { }
 	fn unpause(&mut self,   _: &mut Game) { }
 	fn update(&mut self,    _: &mut Game, _: f64) { }
-	fn render(&mut self, game: &mut Game) { game.framebuffer().unwrap().clear_color(0.0, 0.0, 0.0, 1.0); }
+	fn render(&mut self, game: &mut Game) { game.framebuffer().clear_color(0.0, 0.0, 0.0, 1.0); }
 	fn unload(&mut self,    _: &mut Game) { }
 }
 
+use super::resource::Texture;
 enum ErrorScene{
-	Fixme,
-	ThatsAllFolks,
-	Unready
+	ThatsAllFolks(Texture)
 }
 impl Scene for ErrorScene{
-	fn load(&mut self, _: &mut Game){
+	fn load(&mut self, game: &mut Game){
+		match self{
+			&mut ErrorScene::ThatsAllFolks(ref mut texture) => {
+				*texture = Texture::open(game, "res/fixme.png").unwrap()
+			}
+		}
+	}
+
+	fn render(&mut self, game: &mut Game){
 
 	}
 }
@@ -88,8 +95,18 @@ impl Game{
 		}
 	}
 
-	pub fn framebuffer(&mut self) -> Option<&mut Frame>{
-		self.framebuffer.as_mut()
+
+	/**
+	 * Gets the current game framebuffer.
+	 *
+	 * NOTE: Do NOT call this function outside render(),
+	 * doing so will almost certainly cause the program to crash
+	 */
+	pub fn framebuffer(&mut self) -> &mut Frame{
+		self.framebuffer.as_mut().expect(
+			"Tried to retrieve the Game's framebuffer while it's not ready to be used.
+			 Please make sure you're not trying to get the framebuffer while outside of render()."
+		)
 	}
 
 	pub fn queue_scene(&mut self, scene: Box<Scene>){
@@ -133,6 +150,7 @@ impl Runner{
 		}
 	}
 
+	#[must_use]
 	pub fn run(mut self) -> Game{
 		while self.state.into_u8() != State::Dead.into_u8() {
 			while let State::Running(mut scene) = self.state{
@@ -176,7 +194,7 @@ impl Runner{
 					let mut scene = if self.game.scene_queue.len() > 0 {
 						println!("Found scene!");
 						self.game.scene_queue.remove(0)
-					}else{ Box::new(ErrorScene::ThatsAllFolks) as Box<Scene> };
+					}else{ Box::new(ErrorScene::ThatsAllFolks(Texture::None)) as Box<Scene> };
 
 					scene.load(&mut self.game);
 					State::Running(scene)
@@ -248,6 +266,6 @@ fn scene(){
 	let mut game = Game::new("Automated test: scene()".to_owned(), profile);
 	game.queue_scene(Box::new(Sc1{ count: 0.0, color: (0.0, 0.0, 0.0) }));
 
-	// Run the game
+	// Run and dispose of the game
 	let _ = Runner::new(game).run();
 }

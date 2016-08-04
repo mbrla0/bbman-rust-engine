@@ -8,6 +8,8 @@ pub use cgmath::*;
 
 /* Import all submodules */
 pub mod grid;
+pub mod resource;
+pub mod graphics;
 
 pub mod physics;
 pub use self::physics::Dynamic;
@@ -75,10 +77,6 @@ pub trait Update{
 }
 
 use glium::Texture2d;
-pub trait TextureProvider{
-	fn get_texture(&mut self) -> &Texture2d;
-}
-
 pub struct Animation{
 	pub frames: Vec<Texture2d>,
 
@@ -102,9 +100,8 @@ impl Animation{
 		}
 	}
 }
-impl TextureProvider for Animation{
-	fn get_texture(&mut self) -> &Texture2d{
-		self.update();
+impl resource::TextureProvider for Animation{
+	fn get_texture(&self) -> &Texture2d{
 		&self.frames[self.current_frame]
 	}
 }

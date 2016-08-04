@@ -91,9 +91,9 @@ impl Room{
 		if let Some(spritesheet) = obj.get("spritesheet"){
 			use json::JsonValue;
 			if let &JsonValue::String(ref path) = spritesheet{
-				use image;
 
-				// Decode the spritesheet to RGBA
+				// Lead the spritesheet
+				use image;
 				let buffer = match image::open(path){
 					Ok(img) => img.to_rgba(),
 					Err(err) => {
@@ -324,7 +324,7 @@ fn room_parse_from_json(){
 			\"width\":  2,
 			\"height\": 3,
 
-			\"images\":[\"res/test/0.png\", \"res/test/1.png\"],
+			\"images\":[\"test/0.png\", \"test/1.png\"],
 			\"blocks\":[
 				[0, 1],
 				[2, 0],
