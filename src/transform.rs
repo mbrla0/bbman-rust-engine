@@ -1,4 +1,4 @@
-use super::{Dynamic, Vector3, Matrix4, Rad}; // Import cgmath structures
+use super::{Vector3, Matrix4, Rad}; // Import cgmath structures
 
 #[derive(Clone, PartialEq)]
 pub struct Camera{
@@ -37,17 +37,22 @@ impl Camera{
 			self.projection  = projection;
 		}
 	}
+
+	pub fn replace_projection(&mut self, new: Matrix4<f32>) -> Matrix4<f32>{
+		use std::mem;
+		mem::replace(&mut self.projection, new)
+	}
 }
-impl Dynamic for Camera{
-	fn translate(&mut self, x: f32, y: f32, z: f32) { self.translation = Vector3{x: x, y: y, z: z}; }
-	fn rotate(&mut self, x: f32, y: f32, z: f32)    { self.rotation    = Vector3{x: x, y: y, z: z}; }
-	fn scale(&mut self, x: f32, y: f32, z: f32)     { self.scaling     = Vector3{x: x, y: y, z: z}; }
+impl Camera{
+	pub fn translate(&mut self, x: f32, y: f32, z: f32) { self.translation = Vector3{x: x, y: y, z: z}; }
+	pub fn rotate(&mut self, x: f32, y: f32, z: f32)    { self.rotation    = Vector3{x: x, y: y, z: z}; }
+	pub fn scale(&mut self, x: f32, y: f32, z: f32)     { self.scaling     = Vector3{x: x, y: y, z: z}; }
 
-	fn get_translation(&self) -> &Vector3<f32> { &self.translation }
-	fn get_rotation(&self) -> &Vector3<f32>    { &self.rotation    }
-	fn get_scale(&self) -> &Vector3<f32>       { &self.scaling     }
+	pub fn get_translation(&self) -> &Vector3<f32> { &self.translation }
+	pub fn get_rotation(&self) -> &Vector3<f32>    { &self.rotation    }
+	pub fn get_scale(&self) -> &Vector3<f32>       { &self.scaling     }
 
-	fn get_matrix(&self) -> Matrix4<f32>{
+	pub fn get_matrix(&self) -> Matrix4<f32>{
 		let translate = Matrix4::from_translation(self.translation);
 		let scale = Matrix4::from_nonuniform_scale(self.scaling.x, self.scaling.y, self.scaling.z);
 

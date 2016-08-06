@@ -244,4 +244,10 @@ fn spritesheet(){
 	};
 
 	let spritesheet = sprite_sheet(&display, 16, 16, raw_image).unwrap();
+
+	assert_eq!(spritesheet.elements.len(),       1);
+	assert_eq!(spritesheet.elements[0].len(),    2);
+	assert_eq!(spritesheet.elements[0][0].len(), 2);
+	assert!(spritesheet.in_range(1, 1, 0));
+	assert_eq!(spritesheet.flatten().len(), 4);
 }

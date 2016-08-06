@@ -3,6 +3,9 @@
 #[macro_use] extern crate json;   /* For JSON parsing       */
 #[macro_use] extern crate image;  /* For image decoding     */
 
+/* Get the crate's version */
+static VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 /* Use CgMath's structures */
 pub use cgmath::*;
 
@@ -100,7 +103,7 @@ impl Animation{
 		}
 	}
 }
-impl resource::TextureProvider for Animation{
+impl graphics::TextureProvider for Animation{
 	fn get_texture(&self) -> &Texture2d{
 		&self.frames[self.current_frame]
 	}

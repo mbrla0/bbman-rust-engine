@@ -10,7 +10,6 @@ pub struct VideoProfile{
 	pub vsync: bool
 }
 
-/* Type alias to avoid linting errors until I do the *actual* Scene trait */
 use glium::Surface;
 pub trait Scene{
 	fn load(&mut self,      _: &mut Game) { }
@@ -21,21 +20,41 @@ pub trait Scene{
 	fn unload(&mut self,    _: &mut Game) { }
 }
 
-use super::resource::Texture;
+use super::graphics::Texture;
 enum ErrorScene{
-	ThatsAllFolks(Texture)
+	ThatsAllFolks(Texture, Option<Renderer2d>)
 }
 impl Scene for ErrorScene{
 	fn load(&mut self, game: &mut Game){
+		let mut timer = DeltaTimer::new();
+		timer.delta();
 		match self{
-			&mut ErrorScene::ThatsAllFolks(ref mut texture) => {
-				*texture = Texture::open(game, "res/fixme.png").unwrap()
+			&mut ErrorScene::ThatsAllFolks(ref mut texture, ref mut renderer) => {
+				*texture  = Texture::open(game, "res/fixme.png").unwrap();
+				*renderer = Some(Renderer2d::new(game, 1.0, 1.0).unwrap());
+			}
+		}
+		println!("[Debug][ErrorScene] Took {} seconds to load completely", timer.delta());
+	}
+
+	fn update(&mut self, game: &mut Game, _: f64){
+		match self{
+			&mut ErrorScene::ThatsAllFolks(_, _) => {
+				use glium::glutin::Event;
+				let events: Vec<Event> = game.window.poll_events().collect();
+				for event in events{
+					if let Event::Closed = event{ game.quit() }
+				}
 			}
 		}
 	}
 
 	fn render(&mut self, game: &mut Game){
-
+		match self{
+			&mut ErrorScene::ThatsAllFolks(ref texture, ref mut renderer) => {
+				let _ = renderer.as_mut().unwrap().sprite(game.framebuffer(), 0.0, 0.0, 1.0, 1.0, texture);
+			}
+		}
 	}
 }
 
@@ -59,6 +78,7 @@ use std::any::Any;
 
 use glium::Frame;
 use glium::backend::glutin_backend::GlutinFacade;
+use super::graphics::Renderer2d;
 pub struct Game{
 	name:  String,
 	video: VideoProfile,  /* Video profile the game will be targetting */
@@ -73,7 +93,11 @@ pub struct Game{
 }
 impl Game{
 	pub fn new(name: String, video: VideoProfile) -> Game{
+		println!("[Greeting][Game] BBMan {} - Lovely day today :3", super::VERSION);
+		println!("[Greeting][Game] Welcome to: {}!", name);
+
 		// Build the Window the game will be using
+		println!("[Info][Game] Creating OpenGL window with profile: \n\t{:?}", video);
 		use glium::DisplayBuild;
 		use glium::glutin;
 		let mut win = glutin::WindowBuilder::new()
@@ -81,11 +105,24 @@ impl Game{
 
 		if video.fullscreen { win = win.with_fullscreen(glutin::get_primary_monitor()) }
 		if video.vsync { win = win.with_vsync() }
+		let context = win.build_glium().expect("Could not create main game window!");
+
+		// Display information about the OpenGL context
+		{
+			use glium::Api;
+			let ogl_version  = context.get_opengl_version();
+			let glsl_version = context.get_supported_glsl_version();
+			println!("[Info][Game] Created context with OpenGL {}{}.{} and GLSL {}.{}",
+				if ogl_version.0 == Api::GlEs {"ES "} else { "" }, /* Wether GL or GLES */
+				ogl_version.1,  ogl_version.2,  /* Major and minor versions for OpenGL */
+				glsl_version.1, glsl_version.2, /* Major and minor versions for GLSL */
+			);
+		}
 
 		Game{
 			name: name,
 			video: video,
-			window: win.build_glium().expect("Could not create main game window!"),
+			window: context,
 
 
 			flags: HashMap::new(),
@@ -124,8 +161,6 @@ impl Game{
 	pub fn unpause(&mut self) {
 		if let Target::Pause = self.target { self.target = Target::Continue }
 	}
-
-
 }
 
 /* Implement Facade for Game for convenience */
@@ -192,9 +227,12 @@ impl Runner{
 				State::Available => {
 					/* Load and start running the next scene from the game queue */
 					let mut scene = if self.game.scene_queue.len() > 0 {
-						println!("Found scene!");
+						println!("[Info][Runner::run()] Queued scene found!");
 						self.game.scene_queue.remove(0)
-					}else{ Box::new(ErrorScene::ThatsAllFolks(Texture::None)) as Box<Scene> };
+					}else{
+						println!("[Warning][Runner::run()] No more queued scenes, loading fallback scene");
+						Box::new(ErrorScene::ThatsAllFolks(Texture::None, None)) as Box<Scene>
+					};
 
 					scene.load(&mut self.game);
 					State::Running(scene)
@@ -229,7 +267,7 @@ fn scene(){
 		}
 		fn render(&mut self, g: &mut Game){
 			use glium::Surface;
-			g.framebuffer().unwrap().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
+			g.framebuffer().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
 		}
 	}
 	struct Sc1{ count: f64, color: (f32, f32, f32) }
@@ -252,7 +290,7 @@ fn scene(){
 		}
 		fn render(&mut self, g: &mut Game){
 			use glium::Surface;
-			g.framebuffer().unwrap().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
+			g.framebuffer().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
 		}
 	}
 
