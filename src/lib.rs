@@ -1,13 +1,19 @@
-#[macro_use] extern crate glium;  /* For everything OpenGL  */
-#[macro_use] extern crate cgmath; /* For Matrix calculation */
-#[macro_use] extern crate json;   /* For JSON parsing       */
-#[macro_use] extern crate image;  /* For image decoding     */
+#[macro_use] extern crate glium;  /* For everything OpenGL   */
+#[macro_use] extern crate cgmath; /* For Matrix calculation  */
+#[macro_use] extern crate json;   /* For JSON parsing        */
+#[macro_use] extern crate image;  /* For image decoding      */
+#[macro_use] extern crate log;    /* For programming logging */
 
 /* Get the crate's version */
 static VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 /* Use CgMath's structures */
 pub use cgmath::*;
+
+/* Logger */
+mod logger;
+pub use logger::setup_default as setup_logger;
+pub use logger::setup as setup_logger_with_level;
 
 /* Import all submodules */
 pub mod grid;
@@ -23,7 +29,16 @@ pub use self::transform::Camera;
 pub mod world;
 pub mod game;
 
+pub fn init(){
+	if let Err(what) = self::setup_logger() {
+		println!("
+			ATTENTION! Logger could not be initialized due to the following error, the engine is now
+			completely silent: {:?}
+		", what);
+	}
+}
 use std::time::{Instant, Duration};
+
 pub struct DeltaTimer(Option<Instant>);
 impl DeltaTimer{
 	pub fn new() -> DeltaTimer{
@@ -66,6 +81,9 @@ impl DeltaTimer{
 }
 #[test]
 fn delta_timer(){
+	// Setup logger
+	let _ = ::setup_logger();
+
 	let mut timer = DeltaTimer::new();
 	let _ = timer.duration();
 
@@ -79,41 +97,14 @@ pub trait Update{
 	fn update(&mut self, delta: &f64);
 }
 
-use glium::Texture2d;
-pub struct Animation{
-	pub frames: Vec<Texture2d>,
-
-	pub timing:      usize, /* The time each frame will be displayed for, in milliseconds */
- 	pub loop_offset: usize, /* Number of frames that will be skipped every iteration of the loop */
-
-	current_frame:  usize,
-	timer: DeltaTimer
-}
-impl Animation{
-	fn update(&mut self){
-		let delta_millis = self.timer.delta_millis();
-
-		// Check if any frames have passed
-		if delta_millis >= self.timing as u64{
-			// Increment as many frames as needed
-			self.current_frame += (self.timing as f64 / delta_millis as f64).floor() as usize;
-
-			// Loop animation if necesarry
-			while self.current_frame >= self.frames.len(){ self.current_frame -= self.frames.len() + self.loop_offset }
-		}
-	}
-}
-impl graphics::TextureProvider for Animation{
-	fn get_texture(&self) -> &Texture2d{
-		&self.frames[self.current_frame]
-	}
-}
-
 // ======================= //
 // === Automated Tests === //
 // ======================= //
 #[test]
 fn headed_opengl(){
+	// Setup logger
+	let _ = ::setup_logger();
+
     use glium::DisplayBuild;
     use glium::glutin::WindowBuilder;
     let display = WindowBuilder::new()
@@ -123,11 +114,14 @@ fn headed_opengl(){
 
     use glium::backend::Facade;
     let context = display.get_context();
-    println!("Built context has: OpenGL {:?}, GLSL {:?}", context.get_opengl_version(), context.get_supported_glsl_version());
+    debug!("Built context has: OpenGL {:?}, GLSL {:?}", context.get_opengl_version(), context.get_supported_glsl_version());
 }
 
 #[test]
 fn render_register_quad(){
+	// Setup logger
+	let _ = ::setup_logger();
+
     // Setup headless context
     use glium::DisplayBuild;
     use glium::glutin::WindowBuilder;
@@ -156,6 +150,9 @@ fn render_register_quad(){
 
 #[test]
 fn shader_140(){
+	// Setup logger
+	let _ = ::setup_logger();
+
 	static vert: &'static str = "
 	    #version 140
 

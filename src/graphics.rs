@@ -25,45 +25,57 @@ impl Texture{
 	pub fn open<F: Facade>(facade: &F, path: &str) -> Option<Texture>{
 		use super::image;
 		use std::borrow::Cow;
-		if let Ok(img) = image::open(path){
-			let rgba = img.to_rgba();
-			let data = RawImage2d{
-				width:  rgba.width(),
-				height: rgba.height(),
-				format: ClientFormat::U8U8U8U8,
-				data:   Cow::Owned(rgba.into_raw())
-			};
+		match image::open(path){
+			Ok(img) => {
+				let rgba = img.to_rgba();
+				let data = RawImage2d{
+					width:  rgba.width(),
+					height: rgba.height(),
+					format: ClientFormat::U8U8U8U8,
+					data:   Cow::Owned(rgba.into_raw())
+				};
 
-			match Texture2d::new(facade, data){
-				Ok(texture) => Some(Texture::Loaded(texture)),
-				Err(what) => {
-					println!("[Error][Texture] Could not upload texture to OpenGL: {:?}", what);
-					None
+				match Texture2d::new(facade, data){
+					Ok(texture) => Some(Texture::Loaded(texture)),
+					Err(what) => {
+						error!("Could not upload texture to OpenGL: {:?}", what);
+						None
+					}
 				}
 			}
-		} else { None }
+			Err(what) => {
+				error!(r#"Could not open image at "{}": {:?}"#, path, what);
+				None
+			}
+		}
 	}
 
 	pub fn open_from_memory<F: Facade>(facade: &F, source: &[u8]) -> Option<Texture>{
 		use super::image;
 		use std::borrow::Cow;
-		if let Ok(img) = image::load_from_memory(source){
-			let rgba = img.to_rgba();
-			let data = RawImage2d{
-				width:  rgba.width(),
-				height: rgba.height(),
-				format: ClientFormat::U8U8U8U8,
-				data:   Cow::Owned(rgba.into_raw())
-			};
+		match image::load_from_memory(source){
+			Ok(img) => {
+				let rgba = img.to_rgba();
+				let data = RawImage2d{
+					width:  rgba.width(),
+					height: rgba.height(),
+					format: ClientFormat::U8U8U8U8,
+					data:   Cow::Owned(rgba.into_raw())
+				};
 
-			match Texture2d::new(facade, data){
-				Ok(texture) => Some(Texture::Loaded(texture)),
-				Err(what) => {
-					println!("[Error][Texture] Could not upload texture to OpenGL: {:?}", what);
-					None
+				match Texture2d::new(facade, data){
+					Ok(texture) => Some(Texture::Loaded(texture)),
+					Err(what) => {
+						error!("Could not upload texture to OpenGL: {:?}", what);
+						None
+					}
 				}
 			}
-		} else { None }
+			Err(what) => {
+				error!(r#"Could not open image from memory: {:?}"#, what);
+				None
+			}
+		}
 	}
 }
 impl Texture{
@@ -80,6 +92,15 @@ impl Texture{
 			_ => false
 		}
 	}
+
+	pub fn expect(self, panic: &str) -> Texture2d {
+		match self{
+			Texture::Loaded(texture) => texture,
+			Texture::None => panic!("{}", panic)
+		}
+	}
+
+	pub fn unwrap(self) -> Texture2d{ self.expect("Tried to unwrap Texture::None into Texture2d") }
 }
 impl TextureProvider for Texture{
 	fn get_texture(&self) -> &Texture2d{
@@ -87,6 +108,36 @@ impl TextureProvider for Texture{
 			Texture::Loaded(ref texture) => &texture,
 			_ => panic!("Texture is not loaded")
 		}
+	}
+}
+
+use super::DeltaTimer;
+pub struct Animation{
+	pub frames: Vec<Texture2d>,
+
+	pub timing:      usize, /* The time each frame will be displayed for, in milliseconds */
+ 	pub loop_offset: usize, /* Number of frames that will be skipped every iteration of the loop */
+
+	current_frame:  usize,
+	timer: DeltaTimer
+}
+impl Animation{
+	fn update(&mut self){
+		let delta_millis = self.timer.delta_millis();
+
+		// Check if any frames have passed
+		if delta_millis >= self.timing as u64{
+			// Increment as many frames as needed
+			self.current_frame += (self.timing as f64 / delta_millis as f64).floor() as usize;
+
+			// Loop animation if necesarry
+			while self.current_frame >= self.frames.len(){ self.current_frame -= self.frames.len() + self.loop_offset }
+		}
+	}
+}
+impl TextureProvider for Animation{
+	fn get_texture(&self) -> &Texture2d{
+		&self.frames[self.current_frame]
 	}
 }
 
@@ -157,21 +208,21 @@ impl Renderer2d{
 			]){
 				Ok(vb) => vb,
 				Err(what) => {
-					println!("[Error][Renderer2d] Could not register the required Rectangle Vertex Buffer: {:?}", what);
+					error!("Could not register the required Rectangle Vertex Buffer: {:?}", what);
 					return None
 				}
 			},
 			texture_shader: match Program::from_source(facade, RENDERER2D_TEXTURE_VERTEX_SHADER, RENDERER2D_TEXTURE_FRAGMENT_SHADER, None){
 				Ok(program) => program,
 				Err(what) => {
-					println!("[Error][Renderer2d] Could not compile and link texture shader program: {:?}", what);
+					error!("Could not compile and link texture shader program: {:?}", what);
 					return None
 				}
 			},
 			color_shader: match Program::from_source(facade, RENDERER2D_COLOR_VERTEX_SHADER, RENDERER2D_COLOR_FRAGMENT_SHADER, None){
 				Ok(program) => program,
 				Err(what) => {
-					println!("[Error][Renderer2d] Could not compile and link color shader program: {:?}", what);
+					error!("Could not compile and link color shader program: {:?}", what);
 					return None
 				}
 			}

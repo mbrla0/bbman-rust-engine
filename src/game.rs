@@ -12,49 +12,36 @@ pub struct VideoProfile{
 
 use glium::Surface;
 pub trait Scene{
-	fn load(&mut self,      _: &mut Game) { }
 	fn pause(&mut self,     _: &mut Game) { }
 	fn unpause(&mut self,   _: &mut Game) { }
 	fn update(&mut self,    _: &mut Game, _: f64) { }
 	fn render(&mut self, game: &mut Game) { game.framebuffer().clear_color(0.0, 0.0, 0.0, 1.0); }
-	fn unload(&mut self,    _: &mut Game) { }
 }
 
 use super::graphics::Texture;
-enum ErrorScene{
-	ThatsAllFolks(Texture, Option<Renderer2d>)
+struct ErrorScene{
+	texture:  Texture,
+	renderer: Renderer2d
+}
+impl ErrorScene{
+	pub fn new<F: Facade>(facade: &F) -> ErrorScene {
+		ErrorScene{
+			texture:  Texture::open(facade, "res/fixme.png").unwrap(),
+			renderer: Renderer2d::new(facade, 1.0, 1.0).unwrap()
+		}
+	}
 }
 impl Scene for ErrorScene{
-	fn load(&mut self, game: &mut Game){
-		let mut timer = DeltaTimer::new();
-		timer.delta();
-		match self{
-			&mut ErrorScene::ThatsAllFolks(ref mut texture, ref mut renderer) => {
-				*texture  = Texture::open(game, "res/fixme.png").unwrap();
-				*renderer = Some(Renderer2d::new(game, 1.0, 1.0).unwrap());
-			}
-		}
-		println!("[Debug][ErrorScene] Took {} seconds to load completely", timer.delta());
-	}
-
 	fn update(&mut self, game: &mut Game, _: f64){
-		match self{
-			&mut ErrorScene::ThatsAllFolks(_, _) => {
-				use glium::glutin::Event;
-				let events: Vec<Event> = game.window.poll_events().collect();
-				for event in events{
-					if let Event::Closed = event{ game.quit() }
-				}
-			}
+		use glium::glutin::Event;
+		let events: Vec<Event> = game.window.poll_events().collect();
+		for event in events{
+			if let Event::Closed = event{ game.quit() }
 		}
 	}
 
 	fn render(&mut self, game: &mut Game){
-		match self{
-			&mut ErrorScene::ThatsAllFolks(ref texture, ref mut renderer) => {
-				let _ = renderer.as_mut().unwrap().sprite(game.framebuffer(), 0.0, 0.0, 1.0, 1.0, texture);
-			}
-		}
+		self.renderer.sprite(game.framebuffer(), 0.0, 0.0, 1.0, 1.0, &self.texture);
 	}
 }
 
@@ -93,11 +80,11 @@ pub struct Game{
 }
 impl Game{
 	pub fn new(name: String, video: VideoProfile) -> Game{
-		println!("[Greeting][Game] BBMan {} - Lovely day today :3", super::VERSION);
-		println!("[Greeting][Game] Welcome to: {}!", name);
+		info!("BBMan {} - Lovely day today :3", super::VERSION);
+		info!("Welcome to: {}!", name);
 
 		// Build the Window the game will be using
-		println!("[Info][Game] Creating OpenGL window with profile: \n\t{:?}", video);
+		info!("Creating OpenGL window with profile: \n\t{:?}", video);
 		use glium::DisplayBuild;
 		use glium::glutin;
 		let mut win = glutin::WindowBuilder::new()
@@ -112,7 +99,7 @@ impl Game{
 			use glium::Api;
 			let ogl_version  = context.get_opengl_version();
 			let glsl_version = context.get_supported_glsl_version();
-			println!("[Info][Game] Created context with OpenGL {}{}.{} and GLSL {}.{}",
+			debug!("Created context with OpenGL {}{}.{} and GLSL {}.{}",
 				if ogl_version.0 == Api::GlEs {"ES "} else { "" }, /* Wether GL or GLES */
 				ogl_version.1,  ogl_version.2,  /* Major and minor versions for OpenGL */
 				glsl_version.1, glsl_version.2, /* Major and minor versions for GLSL */
@@ -203,8 +190,8 @@ impl Runner{
 				// Proccess the game's target
 				match self.game.target{
 					Target::Pause    => { scene.pause(&mut self.game);  self.state = State::Paused(scene) },
-					Target::Return   => { scene.unload(&mut self.game); self.state = State::Available },
-					Target::Quit     => { scene.unload(&mut self.game); self.state = State::Dead },
+					Target::Return   => { self.state = State::Available },
+					Target::Quit     => { self.state = State::Dead },
 
 					/* Otherwise, continue running the state */
 					_ => { self.state = State::Running(scene) }
@@ -226,15 +213,13 @@ impl Runner{
 				},
 				State::Available => {
 					/* Load and start running the next scene from the game queue */
-					let mut scene = if self.game.scene_queue.len() > 0 {
-						println!("[Info][Runner::run()] Queued scene found!");
+					let scene = if self.game.scene_queue.len() > 0 {
+						info!("Queued scene found!");
 						self.game.scene_queue.remove(0)
 					}else{
-						println!("[Warning][Runner::run()] No more queued scenes, loading fallback scene");
-						Box::new(ErrorScene::ThatsAllFolks(Texture::None, None)) as Box<Scene>
+						info!("No more queued scenes, loading fallback scene");
+						Box::new(ErrorScene::new(&self.game)) as Box<Scene>
 					};
-
-					scene.load(&mut self.game);
 					State::Running(scene)
 				},
 
@@ -250,9 +235,11 @@ impl Runner{
 
 #[test]
 fn scene(){
+	// Setup logger
+	let _ = ::setup_logger();
+
 	struct Sc0{ count: f64, color: (f32, f32, f32) }
 	impl Scene for Sc0{
-		fn load(&mut self, _: &mut Game){ self.count = 0.0; }
 		fn update(&mut self, g: &mut Game, d: f64){
 			if self.count >= 2.3{ g.quit(); }
 			self.count += d;
@@ -263,7 +250,7 @@ fn scene(){
 				self.count as f32 / 2.3,
 			);
 
-			println!("[Sc] ( count: {}, color: {:?} )", self.count, self.color);
+			debug!("( count: {}, color: {:?} )", self.count, self.color);
 		}
 		fn render(&mut self, g: &mut Game){
 			use glium::Surface;
@@ -272,7 +259,6 @@ fn scene(){
 	}
 	struct Sc1{ count: f64, color: (f32, f32, f32) }
 	impl Scene for Sc1{
-		fn load(&mut self, _: &mut Game){ self.count = 0.0; }
 		fn update(&mut self, g: &mut Game, d: f64){
 			if self.count >= 2.3{
 				g.queue_scene(Box::new(Sc0{ count: 0.0, color: (0.0, 0.0, 0.0) }));
@@ -286,7 +272,7 @@ fn scene(){
 				1.0 - if self.count as f32 / 2.3 > 1.0 { 1.0 } else { self.count as f32 / 2.3 },
 			);
 
-			println!("[Sc] ( count: {}, color: {:?} )", self.count, self.color);
+			debug!("( count: {}, color: {:?} )", self.count, self.color);
 		}
 		fn render(&mut self, g: &mut Game){
 			use glium::Surface;

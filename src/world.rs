@@ -49,7 +49,7 @@ impl Room{
 
 	pub fn from_json<F: Facade>(facade: &F, json: &str) -> Option<Room>{
 		use json;
-		if let json::JsonValue::Object(obj) = match json::parse(json) { Ok(parsed) => parsed, Err(what) => {println!("[Error][Room::from_json()] Could not parse JSON data: {:?}", what); return None} }{
+		if let json::JsonValue::Object(obj) = match json::parse(json) { Ok(parsed) => parsed, Err(what) => { error!("[Error]Could not parse JSON data: {:?}", what); return None } }{
 			Room::from_json_object(facade, obj)
 		}else{ None }
 	}
@@ -75,7 +75,7 @@ impl Room{
 				let buffer = match image::open(path){
 					Ok(img) => img.to_rgba(),
 					Err(err) => {
-						println!("[Error][Room::from_json()] Could not load resource file \"{}\": {:?}", path, err);
+						error!("Could not load resource file \"{}\": {:?}", path, err);
 						return None
 					}
 				};
@@ -104,7 +104,7 @@ impl Room{
 		            let buffer = match image::open(if let Some(string) = source.as_str() { string } else { return None }){
 		                Ok(img) => img.to_rgba(),
 		                Err(err) => {
-		                    println!("[Error][Room::from_json()] Could not load resource file \"{}\": {:?}", source, err);
+		                    error!("Could not load resource file \"{}\": {:?}", source, err);
 		                    return None
 		                }
 		            };
@@ -122,21 +122,21 @@ impl Room{
 		            imgs.push(match Texture2d::new(facade, raw_image){
 		                Ok(texture) => texture,
 		                Err(err) => {
-		                    println!("[Error][Room::from_json()] Could not upload resource file \"{}\": {:?}", source, err);
+		                    error!("Could not upload resource file \"{}\": {:?}", source, err);
 		                    return None
 		                }
 		            });
 		        }
 	        }
 		} else {
-			println!("[Warning][Room::from_json()] No images have been loaded, this will most likely lead to errors, so, tighten your belts, because this is gonna be a rough landing.")
+			warn!("No images have been loaded, this will most likely lead to errors, so, tighten your belts, because this is gonna be a rough landing.")
 		}
 
         // Create a block grid and populate it
         let mut blocks = match Grid::new_with_default(tile_dimension.0, tile_dimension.1, 1, grid_dimension.0, grid_dimension.1, 1, &Block::AIR){
 			Some(grid) => grid,
 			None => {
-				println!("[Error][Room::from_json()] Could not generate blocks grid.");
+				error!("Could not generate blocks grid.");
 				return None
 			}
 		};
@@ -156,7 +156,7 @@ impl Room{
         let mut texture = match Grid::<usize>::new_with_default(tile_dimension.0, tile_dimension.1, 1, grid_dimension.0, grid_dimension.1, 1, &0){
 			Some(grid) => grid,
 			None => {
-				println!("[Error][Room::from_json()] Could not generate texture grid.");
+				error!("Could not generate texture grid.");
 				return None
 			}
 		};
@@ -187,7 +187,7 @@ impl Room{
 		let mut renderer = match Renderer2d::new(facade, self.texture.width as f32, self.texture.height as f32){
 			Some(renderer) => renderer,
             None => {
-                println!("[Error][Room::render()] Could not create renderer");
+                error!("Could not create renderer");
                 return None
             }
 		};
@@ -196,7 +196,7 @@ impl Room{
         let result = match Texture2d::empty(facade, self.texture.absolute_width() as u32, self.texture.absolute_height() as u32){
             Ok(texture) => texture,
             Err(err) => {
-                println!("[Error][Room::render()] Could not create texture: {:?}", err);
+                error!("Could not create texture: {:?}", err);
                 return None
             }
         };
@@ -216,7 +216,7 @@ impl Room{
                     let image = &self.images[match self.texture.at(x, y, 0){
                         Some(i) => i.clone(),
                         None => {
-                            println!("[Warning][Room::render()] Texture mapping error at X: {}, Y: {}", x, y);
+                            warn!("Texture mapping error at X: {}, Y: {}", x, y);
                             continue
                         }
                     }];
@@ -225,7 +225,7 @@ impl Room{
 					match renderer.sprite(&mut canvas, x as f32, y as f32, 1.0, 1.0, image){
 						Ok(_) => {},
 						Err(what) => {
-							println!("[Warning][Room::render()] Could not draw tile at ({}, {}): {}", x, y, what);
+							warn!("Could not draw tile at ({}, {}): {}", x, y, what);
 						}
 					}
                 }
@@ -245,6 +245,9 @@ impl Room{
 
 #[test]
 fn room_parse_from_json(){
+	// Setup logger
+	let _ = ::setup_logger();
+
 	// Setup context
     use glium::DisplayBuild;
     use glium::glutin::WindowBuilder;

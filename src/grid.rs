@@ -173,7 +173,7 @@ pub fn sprite_sheet<F: Facade, P: PixelValue>(facade: &F, sprite_width: usize, s
 					}){
 						Ok(texture) => texture,
 						Err(err) => {
-							println!("Could not create texture for sprite at ({}, {}): {:?}", x, y, err);
+							error!("Could not create texture for sprite at ({}, {}): {:?}", x, y, err);
 							return None
 						}
 					});
@@ -191,6 +191,9 @@ pub fn sprite_sheet<F: Facade, P: PixelValue>(facade: &F, sprite_width: usize, s
 // ======================= //
 #[test]
 fn size(){
+	// Setup logger
+	let _ = ::setup_logger();
+
     // Create a new grid
     let grid = Grid::<u8>::new_with_default(2, 2, 2, 3, 2, 1, &0).unwrap();
 
@@ -202,12 +205,18 @@ fn size(){
 #[test]
 #[should_panic]
 fn dimention_is_zero(){
+	// Setup logger
+	let _ = ::setup_logger();
+
     // Create a new grid with passing one dimention to be 0
     let grid = Grid::<u8>::new_with_default(0, 2, 0, 2, 2, 2, &0).unwrap();
 }
 
 #[test]
 fn flatten(){
+	// Setup logger
+	let _ = ::setup_logger();
+
 	let mut grid = Grid::<u8>::new_with_default(2, 2, 2, 2, 2, 2, &0).unwrap();
 
 	grid.insert(0, 0, 1, 32);  grid.insert(1, 0, 1, 64);
@@ -220,6 +229,9 @@ fn flatten(){
 
 #[test]
 fn spritesheet(){
+	// Setup logger
+	let _ = ::setup_logger();
+
 	// Setup headless context
 	use glium::DisplayBuild;
 	use glium::glutin::WindowBuilder;
