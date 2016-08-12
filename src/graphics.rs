@@ -7,7 +7,7 @@ struct Vertex{
 }
 implement_vertex!(Vertex, bbm_Position, bbm_TexCoord, bbm_Normal);
 
-use super::glium::Texture2d;
+use glium::Texture2d;
 pub trait TextureProvider{
 	fn get_texture(&self) -> &Texture2d;
 }
@@ -15,15 +15,21 @@ impl TextureProvider for Texture2d{
 	fn get_texture(&self) -> &Texture2d { self }
 }
 
+use image::ImageError;
+use glium::texture::TextureCreationError;
+#[derive(Debug)]
+pub enum TextureError{
+	Image(ImageError),
+	TextureCreation(TextureCreationError)
+}
+
 use glium::texture::{RawImage2d, ClientFormat};
 use glium::backend::Facade;
-pub enum Texture{
-	None,
-	Loaded(Texture2d)
-}
+use super::grid::Grid;
+pub struct Texture(Texture2d);
 impl Texture{
-	pub fn open<F: Facade>(facade: &F, path: &str) -> Option<Texture>{
-		use super::image;
+	pub fn open<F: Facade>(facade: &F, path: &str) -> Result<Texture, TextureError>{
+		use image;
 		use std::borrow::Cow;
 		match image::open(path){
 			Ok(img) => {
@@ -36,22 +42,22 @@ impl Texture{
 				};
 
 				match Texture2d::new(facade, data){
-					Ok(texture) => Some(Texture::Loaded(texture)),
+					Ok(texture) => Ok(Texture(texture)),
 					Err(what) => {
 						error!("Could not upload texture to OpenGL: {:?}", what);
-						None
+						Err(TextureError::TextureCreation(what))
 					}
 				}
 			}
 			Err(what) => {
 				error!(r#"Could not open image at "{}": {:?}"#, path, what);
-				None
+				Err(TextureError::Image(what))
 			}
 		}
 	}
 
-	pub fn open_from_memory<F: Facade>(facade: &F, source: &[u8]) -> Option<Texture>{
-		use super::image;
+	pub fn open_from_memory<F: Facade>(facade: &F, source: &[u8]) -> Result<Texture, TextureError>{
+		use image;
 		use std::borrow::Cow;
 		match image::load_from_memory(source){
 			Ok(img) => {
@@ -64,51 +70,74 @@ impl Texture{
 				};
 
 				match Texture2d::new(facade, data){
-					Ok(texture) => Some(Texture::Loaded(texture)),
+					Ok(texture) => Ok(Texture(texture)),
 					Err(what) => {
 						error!("Could not upload texture to OpenGL: {:?}", what);
-						None
+						Err(TextureError::TextureCreation(what))
 					}
 				}
 			}
 			Err(what) => {
-				error!(r#"Could not open image from memory: {:?}"#, what);
-				None
+				error!("Could not open image from memory: {:?}", what);
+				Err(TextureError::Image(what))
 			}
 		}
 	}
-}
-impl Texture{
-	pub fn is_loaded(&self) -> bool{
-		match self{
-			&Texture::Loaded(_) => true,
-			_ => false
-		}
-	}
 
-	pub fn is_none(&self) -> bool{
-		match self{
-			&Texture::None => true,
-			_ => false
-		}
-	}
+	pub fn sprite_sheet<F: Facade>(self, facade: &F, sprite_width: usize, sprite_height: usize) -> Result<Grid<Texture>, TextureError>{
+		// Get the grid's dimensions in sprites
+		let dimensions = (
+			(self.0.width()  as f64 / sprite_width  as f64).floor() as usize,
+			(self.0.height() as f64 / sprite_height as f64).floor() as usize
+		);
 
-	pub fn expect(self, panic: &str) -> Texture2d {
-		match self{
-			Texture::Loaded(texture) => texture,
-			Texture::None => panic!("{}", panic)
-		}
-	}
+		// Read the texture's raw data
+		let texture = self.0.read::<RawImage2d<u8>>();
 
-	pub fn unwrap(self) -> Texture2d{ self.expect("Tried to unwrap Texture::None into Texture2d") }
+		// Read the sheet's data into sectors
+		use std::mem;
+		let mut grid = Grid::new(sprite_width, sprite_height, 1, dimensions.0, dimensions.1, 1);
+		for y in 0..dimensions.1{
+			for x in 0..dimensions.0{
+				// Get pixel data for the current sprite
+				let mut sprite = Vec::with_capacity(sprite_width * sprite_height);
+				for b in 0..sprite_height{
+					for a in 0..sprite_width{
+						let bpp = texture.format.get_size();
+						for e in 0..bpp{
+							let offset_y = y * sprite_height + sprite_height - 1 - b;
+							let offset_x = x * sprite_width  + a;
+
+							// Calculate the offset
+							let offset = offset_y * texture.width as usize + offset_x;
+
+							sprite.push(texture.data[offset * bpp + e]);
+						}
+					}
+				}
+
+				use std::borrow::Cow;
+				grid.push(y, 0, match Texture2d::new(facade, RawImage2d{
+					format: texture.format,
+					width:  sprite_width  as u32,
+					height: sprite_height as u32,
+					data:   Cow::Owned(sprite)
+				}){
+					Ok(sprite) => Texture(sprite),
+					Err(what) => {
+						error!("Could not create texture for sprite at ({}, {}): {:?}", x, y, what);
+						return Err(TextureError::TextureCreation(what))
+					}
+				});
+			}
+		}
+
+		// Return the newly created grid
+		Ok(grid)
+	}
 }
 impl TextureProvider for Texture{
-	fn get_texture(&self) -> &Texture2d{
-		match *self{
-			Texture::Loaded(ref texture) => &texture,
-			_ => panic!("Texture is not loaded")
-		}
-	}
+	fn get_texture(&self) -> &Texture2d{ &self.0 }
 }
 
 use super::DeltaTimer;
@@ -185,8 +214,7 @@ static RENDERER2D_COLOR_FRAGMENT_SHADER: &'static str = "
 	void main(){ color = bbm_Color; }
 ";
 
-
-use super::glium::{Surface, VertexBuffer, Program, DrawError};
+use glium::{Surface, VertexBuffer, Program, DrawError};
 use super::Camera;
 pub struct Renderer2d{
 	camera: Camera,
@@ -276,4 +304,27 @@ impl Renderer2d{
 	pub fn sprite<S: Surface, T: TextureProvider>(&mut self, target: &mut S, x: f32, y: f32, width: f32, height: f32, texture: &T) -> Result<(), DrawError>{
 		self.shaded_sprite(target, x, y, width, height, texture, (1.0, 1.0, 1.0, 1.0))
 	}
+}
+
+#[test]
+fn spritesheet(){
+	// Setup logger
+	let _ = ::setup_logger();
+
+	// Setup headless context
+	use glium::DisplayBuild;
+	use glium::glutin::WindowBuilder;
+	let display = WindowBuilder::new()
+		.with_dimensions(1280, 720)
+		.with_title("Automated test: grid::spritesheet()")
+		.build_glium().unwrap();
+
+	// Load and create a new image and turn it into a spritesheet
+	let spritesheet = Texture::open(&display, "test/sheet.png").unwrap().sprite_sheet(&display, 16, 16).unwrap();
+
+	assert_eq!(spritesheet.elements.len(),       1);
+	assert_eq!(spritesheet.elements[0].len(),    2);
+	assert_eq!(spritesheet.elements[0][0].len(), 2);
+	assert!(spritesheet.in_range(1, 1, 0));
+	assert_eq!(spritesheet.flatten().len(), 4);
 }

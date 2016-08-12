@@ -20,7 +20,7 @@ impl Log for Logger{
 	fn log(&self, record: &LogRecord){
 		if self.enabled(record.metadata()){
 			let location = record.location();
-			println!("[{:?}][{}::{}:{}] {}", record.level(), location.module_path(), location.file(), location.line(), record.args());
+			println!("[{:?}][{2}:{3}][{1}] {4}", record.level(), location.module_path(), location.file(), location.line(), record.args());
 		}
 	}
 }

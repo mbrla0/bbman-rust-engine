@@ -41,7 +41,9 @@ impl Scene for ErrorScene{
 	}
 
 	fn render(&mut self, game: &mut Game){
-		self.renderer.sprite(game.framebuffer(), 0.0, 0.0, 1.0, 1.0, &self.texture);
+		if let Err(what) = self.renderer.sprite(game.framebuffer(), 0.0, 0.0, 1.0, 1.0, &self.texture){
+			warn!("Missed frame! {:?}", what);
+		}
 	}
 }
 

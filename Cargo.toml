@@ -1,6 +1,6 @@
 [package]
 name = "bbman"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Matheus Borella (DarkRyu550) <dark.ryu.550@gmail.com>"]
 
 [lib]

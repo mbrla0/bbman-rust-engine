@@ -1,5 +1,5 @@
-#[macro_use] extern crate glium;  /* For everything OpenGL   */
-#[macro_use] extern crate cgmath; /* For Matrix calculation  */
+#[macro_use] pub extern crate glium;  /* For everything OpenGL   */
+#[macro_use] pub extern crate cgmath; /* For Matrix calculation  */
 #[macro_use] extern crate json;   /* For JSON parsing        */
 #[macro_use] extern crate image;  /* For image decoding      */
 #[macro_use] extern crate log;    /* For programming logging */
@@ -19,14 +19,19 @@ pub use logger::setup as setup_logger_with_level;
 pub mod grid;
 pub mod resource;
 pub mod graphics;
-
 pub mod physics;
-pub use self::physics::Dynamic;
 
 pub mod transform;
 pub use self::transform::Camera;
 
+/*
+ * World is a carryover from very early engine times.
+ * At the moment, it hasn't much practical usability, and
+ * it planned to be completely remade in the future.
+ */
+#[deprecated]
 pub mod world;
+
 pub mod game;
 
 pub fn init(){
@@ -100,6 +105,8 @@ pub trait Update{
 // ======================= //
 // === Automated Tests === //
 // ======================= //
+
+
 #[test]
 fn headed_opengl(){
 	// Setup logger

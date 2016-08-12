@@ -1,6 +1,6 @@
 [root]
 name = "bbman"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "cgmath 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glium 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",

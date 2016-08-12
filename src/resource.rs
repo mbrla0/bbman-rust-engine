@@ -8,6 +8,18 @@ pub enum Resource{
 	Raw(Vec<u8>)
 }
 
+use std::io::Error as IoError;
+use super::graphics::TextureError;
+#[derive(Debug)]
+pub enum ResourceError{
+	DifferentTypeAlreadyCached,
+	FileNotFound,
+	PathNotAvailable,
+	UnableToReadFile(IoError),
+
+	UnableToCreateTexture(TextureError),
+}
+
 pub struct Resources{
 	root:  PathBuf, /* Root of the resource tree */
 	cache:  HashMap<String, Resource>, /* Cached values */
@@ -22,13 +34,13 @@ impl Resources{
 		}
 	}
 
-	pub fn texture<F: Facade>(&mut self, facade: &F, uri: &str) -> Option<&Texture2d>{
+	pub fn texture<F: Facade>(&mut self, facade: &F, uri: &str) -> Result<&Texture2d, ResourceError>{
 		match self.cache.entry(uri.to_owned()){
 			Entry::Occupied(entry) =>
-				if let &mut Resource::Texture(ref texture) = entry.into_mut() { Some(texture.get_texture()) }
+				if let &mut Resource::Texture(ref texture) = entry.into_mut() { Ok(texture.get_texture()) }
 				else {
 					error!(r#"Cached element at ID "{}" is not a Resource::Texture"#, uri);
-					None
+					Err(ResourceError::DifferentTypeAlreadyCached)
 				},
 			Entry::Vacant(entry) => {
 				let mut path_buf = self.root.clone();
@@ -38,29 +50,29 @@ impl Resources{
 					Some(path) => path,
 					None => {
 						error!("Could not convert path {:?} to string slice!", path_buf);
-						return None
+						return Err(ResourceError::PathNotAvailable)
 					}
 				};
 
 				let texture = match Texture::open(facade, path){
-					Some(texture) => texture,
-					None => return None
+					Ok(texture) => texture,
+					Err(what)   => return Err(ResourceError::UnableToCreateTexture(what))
 				};
 
 				if let &mut Resource::Texture(ref tx) = entry.insert(Resource::Texture(texture)){
-					Some(tx.get_texture())
+					Ok(tx.get_texture())
 				}else{ panic!("Iconsistency! Wasn't able to destructure reference to cached value") }
 			}
 		}
 	}
 
-	pub fn text(&mut self, uri: &str) -> Option<&str>{
+	pub fn text(&mut self, uri: &str) -> Result<&str, ResourceError>{
 		match self.cache.entry(uri.to_owned()){
 			Entry::Occupied(entry) =>
-				if let &mut Resource::Text(ref string) = entry.into_mut() { Some(string.as_str()) }
+				if let &mut Resource::Text(ref string) = entry.into_mut() { Ok(string.as_str()) }
 				else {
 					error!(r#"Cached element at ID "{}" is not a Resource::Text"#, uri);
-					None
+					Err(ResourceError::DifferentTypeAlreadyCached)
 				},
 			Entry::Vacant(entry) => {
 				let mut path = self.root.clone();
@@ -69,7 +81,7 @@ impl Resources{
 				// Open and read the file into a buffer
 				if !path.exists(){
 					error!(r#"Path {:?} does not exist"#, path);
-					return None
+					return Err(ResourceError::FileNotFound)
 				}
 				use std::fs::File;
 				use std::io::Read;
@@ -78,30 +90,30 @@ impl Resources{
 					Ok(mut file) => {
 						if let Err(what) = file.read_to_string(&mut buffer){
 							error!(r#"Could not read raw data from path {:?}: {:?}"#, path, what);
-							return None
+							return Err(ResourceError::UnableToReadFile(what))
 						}
 					},
 					Err(what) => {
 						error!(r#"Could not open file at path {:?}: {:?}"#, path, what);
-						return None
+						return Err(ResourceError::UnableToReadFile(what))
 					}
 				}
 
 				if let &mut Resource::Text(ref tx) = entry.insert(Resource::Text(buffer)){
-					Some(tx.as_str())
+					Ok(tx.as_str())
 				}else{ panic!("Iconsistency! Wasn't able to destructure reference to cached value") }
 			}
 		}
 	}
 
 	/** Opens a file and caches it for later reuse, returning a slice reference */
-	pub fn raw(&mut self, uri: &str) -> Option<&[u8]>{
+	pub fn raw(&mut self, uri: &str) -> Result<&[u8], ResourceError>{
 		match self.cache.entry(uri.to_owned()){
 			Entry::Occupied(entry) =>
-				if let &mut Resource::Raw(ref buffer) = entry.into_mut() { Some(&buffer[..]) }
+				if let &mut Resource::Raw(ref buffer) = entry.into_mut() { Ok(&buffer[..]) }
 				else {
 					error!(r#"Cached element at ID "{}" is not a Resource::Raw"#, uri);
-					None
+					Err(ResourceError::DifferentTypeAlreadyCached)
 				},
 			Entry::Vacant(entry) => {
 				let mut path = self.root.clone();
@@ -110,7 +122,7 @@ impl Resources{
 				// Open and read the file into a buffer
 				if !path.exists(){
 					error!(r#"Path {:?} does not exist"#, path);
-					return None
+					return Err(ResourceError::FileNotFound)
 				}
 				use std::fs::File;
 				use std::io::Read;
@@ -119,17 +131,17 @@ impl Resources{
 					Ok(mut file) => {
 						if let Err(what) = file.read_to_end(&mut buffer){
 							error!(r#"Could not read raw data from path {:?}: {:?}"#, path, what);
-							return None
+							return Err(ResourceError::UnableToReadFile(what))
 						}
 					},
 					Err(what) => {
 						error!(r#"Could not open file at path {:?}: {:?}"#, path, what);
-						return None
+						return Err(ResourceError::UnableToReadFile(what))
 					}
 				}
 
 				if let &mut Resource::Raw(ref buff) = entry.insert(Resource::Raw(buffer)){
-					Some(&buff[..])
+					Ok(&buff[..])
 				}else{ panic!("Iconsistency! Wasn't able to destructure reference to cached value") }
 			}
 		}

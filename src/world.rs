@@ -1,4 +1,3 @@
-use super::grid;
 use super::grid::Grid;
 
 use json;
@@ -22,13 +21,9 @@ impl Block{
 	}
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Entity{
-
-}
-
+use super::graphics::Texture;
 pub struct Room{
-    pub images: Vec<Texture2d>, /* Images available to the room's texture mapping */
+    pub images: Vec<Texture>, /* Images available to the room's texture mapping */
 
     pub blocks:  Grid<Block>, /* Colision mapping */
     pub texture: Grid<usize>  /* Texture mapping  */
@@ -39,8 +34,8 @@ impl Room{
 			let room = Room{
 	            images: Vec::new(),
 
-	            blocks:  match Grid::new_with_default(block_width, block_height, 1, width, height, 1, &Block::AIR) { Some(val) => val, None => return None },
-	            texture: match Grid::new_with_default(block_width, block_height, 1, width, height, 1, &0)          { Some(val) => val, None => return None }
+	            blocks:  Grid::new_with_default(block_width, block_height, 1, width, height, 1, &Block::AIR),
+	            texture: Grid::new_with_default(block_width, block_height, 1, width, height, 1, &0)
         	};
 
 			room
@@ -66,31 +61,21 @@ impl Room{
         );
 
 		// Load the room's images
-        let mut imgs = Vec::<Texture2d>::new();
+        let mut imgs = Vec::new();
 		if let Some(spritesheet) = obj.get("spritesheet"){
 			if let Some(path) = spritesheet.as_str(){
 
-				// Lead the spritesheet
-				use image;
-				let buffer = match image::open(path){
-					Ok(img) => img.to_rgba(),
-					Err(err) => {
-						error!("Could not load resource file \"{}\": {:?}", path, err);
+				// Load the spritesheet
+				let texture = match Texture::open(facade, path){
+					Ok(loaded) => loaded,
+					Err(what) => {
+						error!("Could not load texture: {:?}", what);
 						return None
 					}
 				};
 
-				use std::borrow::Cow;
-				use glium::texture::{RawImage2d, ClientFormat};
-				let raw_image = RawImage2d{
-					format: ClientFormat::U8U8U8U8,
-					width:  buffer.width(),
-					height: buffer.height(),
-					data:   Cow::Owned(buffer.into_raw())
-				};
-
 				// Create a new sprite sheet and append it flattened
-				if let Some(sheet) = grid::sprite_sheet(facade, tile_dimension.0, tile_dimension.1, raw_image){
+				if let Ok(sheet) = texture.sprite_sheet(facade, tile_dimension.0, tile_dimension.1){
 					let mut flat = sheet.flatten();
 					imgs.append(&mut flat);
 				}
@@ -98,34 +83,16 @@ impl Room{
 		} else if let Some(sources) = obj.get("images") {
 	        if !sources.is_null(){
 		        for source in sources.members(){
-		            use image;
-
-		            // Decode the image to RGBA
-		            let buffer = match image::open(if let Some(string) = source.as_str() { string } else { return None }){
-		                Ok(img) => img.to_rgba(),
-		                Err(err) => {
-		                    error!("Could not load resource file \"{}\": {:?}", source, err);
-		                    return None
-		                }
-		            };
-
-		            use std::borrow::Cow;
-		            use glium::texture::{RawImage2d, ClientFormat};
-		            let raw_image = RawImage2d{
-		                format: ClientFormat::U8U8U8U8,
-		                width:  buffer.width(),
-		                height: buffer.height(),
-		                data:   Cow::Owned(buffer.into_raw())
-		            };
-
-		            // Create a new texture
-		            imgs.push(match Texture2d::new(facade, raw_image){
-		                Ok(texture) => texture,
-		                Err(err) => {
-		                    error!("Could not upload resource file \"{}\": {:?}", source, err);
-		                    return None
-		                }
-		            });
+					if let Some(stringfied) = sources.as_str(){
+						// Load and push the images
+						imgs.push(match Texture::open(facade, stringfied){
+							Ok(loaded) => loaded,
+							Err(what) => {
+								error!("Could not load texture: {:?}", what);
+								return None
+							}
+						});
+					}
 		        }
 	        }
 		} else {
@@ -133,13 +100,7 @@ impl Room{
 		}
 
         // Create a block grid and populate it
-        let mut blocks = match Grid::new_with_default(tile_dimension.0, tile_dimension.1, 1, grid_dimension.0, grid_dimension.1, 1, &Block::AIR){
-			Some(grid) => grid,
-			None => {
-				error!("Could not generate blocks grid.");
-				return None
-			}
-		};
+        let mut blocks = Grid::new_with_default(tile_dimension.0, tile_dimension.1, 1, grid_dimension.0, grid_dimension.1, 1, &Block::AIR);
 		if let Some(obj_blocks) = obj.get("blocks"){
 	        for y in 0..grid_dimension.1{
 	            for x in 0..grid_dimension.0{
@@ -153,13 +114,7 @@ impl Room{
 		}
 
 		// Create a texture mapping grid and populate it
-        let mut texture = match Grid::<usize>::new_with_default(tile_dimension.0, tile_dimension.1, 1, grid_dimension.0, grid_dimension.1, 1, &0){
-			Some(grid) => grid,
-			None => {
-				error!("Could not generate texture grid.");
-				return None
-			}
-		};
+        let mut texture = Grid::<usize>::new_with_default(tile_dimension.0, tile_dimension.1, 1, grid_dimension.0, grid_dimension.1, 1, &0);
 		if let Some(obj_texture) = obj.get("texture"){
 	        for y in 0..grid_dimension.1{
 	            for x in 0..grid_dimension.0{

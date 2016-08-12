@@ -42,15 +42,14 @@ impl Camera{
 		use std::mem;
 		mem::replace(&mut self.projection, new)
 	}
-}
-impl Camera{
+
 	pub fn translate(&mut self, x: f32, y: f32, z: f32) { self.translation = Vector3{x: x, y: y, z: z}; }
 	pub fn rotate(&mut self, x: f32, y: f32, z: f32)    { self.rotation    = Vector3{x: x, y: y, z: z}; }
 	pub fn scale(&mut self, x: f32, y: f32, z: f32)     { self.scaling     = Vector3{x: x, y: y, z: z}; }
 
-	pub fn get_translation(&self) -> &Vector3<f32> { &self.translation }
-	pub fn get_rotation(&self) -> &Vector3<f32>    { &self.rotation    }
-	pub fn get_scale(&self) -> &Vector3<f32>       { &self.scaling     }
+	pub fn position(&self) -> &Vector3<f32> { &self.translation }
+	pub fn rotation(&self) -> &Vector3<f32>    { &self.rotation    }
+	pub fn dimensions(&self) -> &Vector3<f32>       { &self.scaling     }
 
 	pub fn get_matrix(&self) -> Matrix4<f32>{
 		let translate = Matrix4::from_translation(self.translation);
@@ -61,6 +60,6 @@ impl Camera{
 			* Matrix4::from_angle_z(Rad::new(self.rotation.z));
 
 		// Multiply the calculated matrices
-		self.projection * (scale * translate * rotation)
+		self.projection * (translate * scale * rotation)
 	}
 }
