@@ -148,43 +148,48 @@ impl Resources{
 	}
 }
 
-#[test]
-fn text(){
-	// Setup logger
-	let _ = ::setup_logger();
+#[cfg(test)]
+mod tests{
+	use super::Resources;
 
-	let mut resources = Resources::new("./test/");
-	let file = resources.text("resources/text").unwrap();
-	assert_eq!(file, "This is a file used in an automated test, please don't edit it, unless you want the test to fail.\n");
-}
+	#[test]
+	fn text(){
+		// Setup logger
+		let _ = ::setup_logger();
 
-#[test]
-fn raw(){
-	// Setup logger
-	let _ = ::setup_logger();
+		let mut resources = Resources::new("./test/");
+		let file = resources.text("resources/text").unwrap();
+		assert_eq!(file, "This is a file used in an automated test, please don't edit it, unless you want the test to fail.\n");
+	}
 
-	let mut resources = Resources::new("./test/");
-	let file = resources.raw("resources/raw").unwrap();
-	assert_eq!(file, &[
-		0x00, 0x46, 0x41, 0x5F, 0x44, 0x52, 0x41, 0x47, 0x4F, 0x4E,
+	#[test]
+	fn raw(){
+		// Setup logger
+		let _ = ::setup_logger();
 
-		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-		0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
-	]);
-}
+		let mut resources = Resources::new("./test/");
+		let file = resources.raw("resources/raw").unwrap();
+		assert_eq!(file, &[
+			0x00, 0x46, 0x41, 0x5F, 0x44, 0x52, 0x41, 0x47, 0x4F, 0x4E,
 
-#[test]
-fn texture(){
-	// Setup logger
-	let _ = ::setup_logger();
+			0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+			0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
+		]);
+	}
 
-	// Setup context
-    use glium::DisplayBuild;
-    use glium::glutin::WindowBuilder;
-    let display = WindowBuilder::new()
-        .with_dimensions(1280, 720)
-        .with_title("Automated test: resource::texture()")
-        .build_glium().unwrap();
+	#[test]
+	fn texture(){
+		// Setup logger
+		let _ = ::setup_logger();
 
-	let _ = Resources::new("./test/").texture(&display, "resources/texture.png").unwrap();
+		// Setup context
+		use glium::DisplayBuild;
+		use glium::glutin::WindowBuilder;
+		let display = WindowBuilder::new()
+			.with_dimensions(1280, 720)
+			.with_title("Automated test: resource::texture()")
+			.build_glium().unwrap();
+
+		let _ = Resources::new("./test/").texture(&display, "resources/texture.png").unwrap();
+	}
 }

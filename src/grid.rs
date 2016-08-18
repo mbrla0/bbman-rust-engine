@@ -129,33 +129,35 @@ impl<T: Copy> Grid<T>{
 	}
 }
 
-// ======================= //
-// === Automated Tests === //
-// ======================= //
-#[test]
-fn size(){
-	// Setup logger
-	let _ = ::setup_logger();
+#[cfg(test)]
+mod tests{
+	use super::Grid;
 
-    // Create a new grid
-    let grid = Grid::<u8>::new_with_default(2, 2, 2, 3, 2, 1, &0);
+	#[test]
+	fn size(){
+		// Setup logger
+		let _ = ::setup_logger();
 
-    assert_eq!(grid.elements.len(),       grid.depth);
-    assert_eq!(grid.elements[0].len(),    grid.height);
-	assert_eq!(grid.elements[0][0].len(), grid.width);
-}
+		// Create a new grid
+		let grid = Grid::<u8>::new_with_default(2, 2, 2, 3, 2, 1, &0);
 
-#[test]
-fn flatten(){
-	// Setup logger
-	let _ = ::setup_logger();
+		assert_eq!(grid.elements.len(),       grid.depth);
+		assert_eq!(grid.elements[0].len(),    grid.height);
+		assert_eq!(grid.elements[0][0].len(), grid.width);
+	}
 
-	let mut grid = Grid::<u8>::new_with_default(2, 2, 2, 2, 2, 2, &0);
+	#[test]
+	fn flatten(){
+		// Setup logger
+		let _ = ::setup_logger();
 
-	grid.insert(0, 0, 1, 32);  grid.insert(1, 0, 1, 64);
-	grid.insert(0, 1, 1, 128); grid.insert(1, 1, 1, 256);
-	grid.insert(0, 0, 0, 2);   grid.insert(1, 0, 0, 4);
-	grid.insert(0, 1, 0, 8);   grid.insert(1, 1, 0, 16);
+		let mut grid = Grid::<u8>::new_with_default(2, 2, 2, 2, 2, 2, &0);
 
-	assert_eq!(grid.flatten(), vec![2, 4, 8, 16, 32, 64, 128, 256]);
+		grid.insert(0, 0, 1, 32);  grid.insert(1, 0, 1, 64);
+		grid.insert(0, 1, 1, 128); grid.insert(1, 1, 1, 256);
+		grid.insert(0, 0, 0, 2);   grid.insert(1, 0, 0, 4);
+		grid.insert(0, 1, 0, 8);   grid.insert(1, 1, 0, 16);
+
+		assert_eq!(grid.flatten(), vec![2, 4, 8, 16, 32, 64, 128, 256]);
+	}
 }

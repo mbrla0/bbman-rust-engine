@@ -252,5 +252,5 @@ fn room_parse_from_json(){
 
 		// Render
 		room.render(&display);
-	}else { panic!("JsonValue is not an object!"); }
+	} else { panic!("JsonValue is not an object!"); }
 }

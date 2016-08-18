@@ -47,7 +47,7 @@ impl Scene for ErrorScene{
 	}
 }
 
-enum State  { Running(Box<Scene>), Paused(Box<Scene>), Available, Dead }
+enum State { Running(Box<Scene>), Paused(Box<Scene>), Available, Dead }
 impl State{
 	fn into_u8(&self) -> u8 {
 		match *self{
@@ -235,63 +235,68 @@ impl Runner{
 	}
 }
 
-#[test]
-fn scene(){
-	// Setup logger
-	let _ = ::setup_logger();
+#[cfg(test)]
+mod tests{
+	use super::{Game, Scene, Runner, VideoProfile};
 
-	struct Sc0{ count: f64, color: (f32, f32, f32) }
-	impl Scene for Sc0{
-		fn update(&mut self, g: &mut Game, d: f64){
-			if self.count >= 2.3{ g.quit(); }
-			self.count += d;
+	#[test]
+	fn scene(){
+		// Setup logger
+		let _ = ::setup_logger();
 
-			self.color = (
-				0.0,
-				self.count as f32 / 2.3,
-				self.count as f32 / 2.3,
-			);
+		struct Sc0{ count: f64, color: (f32, f32, f32) }
+		impl Scene for Sc0{
+			fn update(&mut self, g: &mut Game, d: f64){
+				if self.count >= 2.3{ g.quit(); }
+				self.count += d;
 
-			debug!("( count: {}, color: {:?} )", self.count, self.color);
-		}
-		fn render(&mut self, g: &mut Game){
-			use glium::Surface;
-			g.framebuffer().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
-		}
-	}
-	struct Sc1{ count: f64, color: (f32, f32, f32) }
-	impl Scene for Sc1{
-		fn update(&mut self, g: &mut Game, d: f64){
-			if self.count >= 2.3{
-				g.queue_scene(Box::new(Sc0{ count: 0.0, color: (0.0, 0.0, 0.0) }));
-				g.finish();
+				self.color = (
+					0.0,
+					self.count as f32 / 2.3,
+					self.count as f32 / 2.3,
+				);
+
+				debug!("( count: {}, color: {:?} )", self.count, self.color);
 			}
-			self.count += d;
-
-			self.color = (
-				0.0,
-				1.0 - if self.count as f32 / 2.3 > 1.0 { 1.0 } else { self.count as f32 / 2.3 },
-				1.0 - if self.count as f32 / 2.3 > 1.0 { 1.0 } else { self.count as f32 / 2.3 },
-			);
-
-			debug!("( count: {}, color: {:?} )", self.count, self.color);
+			fn render(&mut self, g: &mut Game){
+				use glium::Surface;
+				g.framebuffer().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
+			}
 		}
-		fn render(&mut self, g: &mut Game){
-			use glium::Surface;
-			g.framebuffer().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
+		struct Sc1{ count: f64, color: (f32, f32, f32) }
+		impl Scene for Sc1{
+			fn update(&mut self, g: &mut Game, d: f64){
+				if self.count >= 2.3{
+					g.queue_scene(Box::new(Sc0{ count: 0.0, color: (0.0, 0.0, 0.0) }));
+					g.finish();
+				}
+				self.count += d;
+
+				self.color = (
+					0.0,
+					1.0 - if self.count as f32 / 2.3 > 1.0 { 1.0 } else { self.count as f32 / 2.3 },
+					1.0 - if self.count as f32 / 2.3 > 1.0 { 1.0 } else { self.count as f32 / 2.3 },
+				);
+
+				debug!("( count: {}, color: {:?} )", self.count, self.color);
+			}
+			fn render(&mut self, g: &mut Game){
+				use glium::Surface;
+				g.framebuffer().clear_color(self.color.0, self.color.1, self.color.2, 1.0);
+			}
 		}
+
+		let profile = VideoProfile{
+			width: 800,
+			height: 600,
+			framerate: 60,
+			fullscreen: false,
+			vsync: true
+		};
+		let mut game = Game::new("Automated test: scene()".to_owned(), profile);
+		game.queue_scene(Box::new(Sc1{ count: 0.0, color: (0.0, 0.0, 0.0) }));
+
+		// Run and dispose of the game
+		let _ = Runner::new(game).run();
 	}
-
-	let profile = VideoProfile{
-		width: 800,
-		height: 600,
-		framerate: 60,
-		fullscreen: false,
-		vsync: true
-	};
-	let mut game = Game::new("Automated test: scene()".to_owned(), profile);
-	game.queue_scene(Box::new(Sc1{ count: 0.0, color: (0.0, 0.0, 0.0) }));
-
-	// Run and dispose of the game
-	let _ = Runner::new(game).run();
 }

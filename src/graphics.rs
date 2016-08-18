@@ -306,25 +306,30 @@ impl Renderer2d{
 	}
 }
 
-#[test]
-fn spritesheet(){
-	// Setup logger
-	let _ = ::setup_logger();
+#[cfg(test)]
+mod tests{
+	use super::Texture;
 
-	// Setup headless context
-	use glium::DisplayBuild;
-	use glium::glutin::WindowBuilder;
-	let display = WindowBuilder::new()
-		.with_dimensions(1280, 720)
-		.with_title("Automated test: grid::spritesheet()")
-		.build_glium().unwrap();
+	#[test]
+	fn spritesheet(){
+		// Setup logger
+		let _ = ::setup_logger();
 
-	// Load and create a new image and turn it into a spritesheet
-	let spritesheet = Texture::open(&display, "test/sheet.png").unwrap().sprite_sheet(&display, 16, 16).unwrap();
+		// Setup headless context
+		use glium::DisplayBuild;
+		use glium::glutin::WindowBuilder;
+		let display = WindowBuilder::new()
+			.with_dimensions(1280, 720)
+			.with_title("Automated test: grid::spritesheet()")
+			.build_glium().unwrap();
 
-	assert_eq!(spritesheet.elements.len(),       1);
-	assert_eq!(spritesheet.elements[0].len(),    2);
-	assert_eq!(spritesheet.elements[0][0].len(), 2);
-	assert!(spritesheet.in_range(1, 1, 0));
-	assert_eq!(spritesheet.flatten().len(), 4);
+		// Load and create a new image and turn it into a spritesheet
+		let spritesheet = Texture::open(&display, "test/sheet.png").unwrap().sprite_sheet(&display, 16, 16).unwrap();
+
+		assert_eq!(spritesheet.elements.len(),       1);
+		assert_eq!(spritesheet.elements[0].len(),    2);
+		assert_eq!(spritesheet.elements[0][0].len(), 2);
+		assert!(spritesheet.in_range(1, 1, 0));
+		assert_eq!(spritesheet.flatten().len(), 4);
+	}
 }

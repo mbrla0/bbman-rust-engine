@@ -8,8 +8,11 @@ name = "bbman"
 path = "src/lib.rs"
 
 [dependencies]
-glium  = "*"
-cgmath = "*"
-json   = "*"
-image  = "*"
-log    = "*"
+cgmath    = "*"
+collision = "*"
+glium     = "*"
+image     = "*"
+log       = "*"
+
+# Disabled due to bbman::world being deprecated
+json = "*"

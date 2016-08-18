@@ -1,4 +1,4 @@
-use super::{Vector3, Matrix4, Rad}; // Import cgmath structures
+use cgmath::{Vector3, Matrix4, Rad}; // Import cgmath structures
 
 #[derive(Clone, PartialEq)]
 pub struct Camera{
