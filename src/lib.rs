@@ -18,9 +18,12 @@ pub mod time;
 pub use self::time::DeltaTimer;
 
 pub mod grid;
-pub mod resource;
-pub mod graphics;
 pub mod physics;
+
+pub mod audio;
+pub mod graphics;
+
+pub mod resource;
 
 pub mod transform;
 pub use self::transform::Camera;

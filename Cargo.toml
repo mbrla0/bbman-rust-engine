@@ -14,5 +14,9 @@ glium     = "*"
 image     = "*"
 log       = "*"
 
+# Sound codec libraries
+hound  = "*" # Wave (RIFF)
+vorbis = "*" # Ogg Vorbis
+
 # Disabled due to bbman::world being deprecated
 json = "*"

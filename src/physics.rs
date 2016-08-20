@@ -1,6 +1,4 @@
 use cgmath::{Vector3, Point3};
-use super::grid::Grid;
-
 pub trait Dynamic{
 	fn set_position(&mut self, x: f64, y: f64, z: f64);
 	fn set_rotation(&mut self, x: f64, y: f64, z: f64);
@@ -30,8 +28,7 @@ pub trait Dynamic{
 pub enum Collision{
 	Air,                /* Completely passable   */
 	Solid,              /* Completely impassable */
-	Trap,               /* Passable, trapping a body once it's completely inside */
-	Fluid(usize),       /* Passable, slowing movement by a given factor */
+	Fluid(f64),         /* Passable, slowing movement by a given factor */
 	Ledge(Vector3<f64>) /* Passable only with a given vector */
 }
 
@@ -55,22 +52,24 @@ pub struct DynamicBody{
 	rotation:  Vector3<f64>,
 
 	nailed: bool,
-	collision: Option<Aabb3<f64>>
+	boundaries: Option<Aabb3<f64>>,
+	collision:  Option<Collision>
 }
 impl DynamicBody{
-	pub fn new(position: Point3<f64>, dimension: Vector3<f64>, rotation: Vector3<f64>, nailed: bool, collision: Option<Aabb3<f64>>) -> DynamicBody{
+	pub fn new(position: Point3<f64>, dimension: Vector3<f64>, rotation: Vector3<f64>, nailed: bool, boundaries: Option<Aabb3<f64>>, collision: Option<Collision>) -> DynamicBody{
 		DynamicBody{
 			position:  position,
 			dimension: dimension,
 			rotation:  rotation,
 
-			nailed:    nailed,
-			collision: collision
+			nailed:     nailed,
+			boundaries: boundaries,
+			collision:  collision
 		}
 	}
 
-	pub fn update_collision(&mut self, collision: Option<Aabb3<f64>>){
-		self.collision = collision;
+	pub fn update_boundaries(&mut self, boundaries: Option<Aabb3<f64>>){
+		self.boundaries = boundaries;
 	}
 }
 impl Dynamic for DynamicBody{
@@ -96,7 +95,7 @@ impl Dynamic for DynamicBody{
 }
 impl Body for DynamicBody{
 	fn aabb(&self) -> Aabb3<f64> {
-		match self.collision{
+		match self.boundaries{
 			Some(ref collision) => collision.clone(),
 			None => Aabb3::new(
 				Point3::new(self.position.x, self.position.y, self.position.z),
@@ -104,8 +103,26 @@ impl Body for DynamicBody{
 			)
 		}
 	}
-	fn collision(&self) -> Collision{ Collision::Solid }
+
+	fn collision(&self) -> Collision{
+		match self.collision{
+			Some(ref c) => c.clone(),
+			None => Collision::Solid
+		}
+	}
+
 	fn nailed(&self) -> bool { self.nailed }
+}
+
+fn _modulus(n: f64) -> f64{
+	if n < 0.0 { -n } else { n }
+}
+
+/* Implement intersection for two Aabb3's */
+fn aabb_aabb_intersection(a: &Aabb3<f64>, b: &Aabb3<f64>) -> bool{
+	   (a.max.x >= b.min.x && b.max.x >= a.min.x)
+	&& (a.max.y >= b.min.y && b.max.y >= a.min.y)
+	&& (a.max.z >= b.min.z && b.max.z >= a.min.z)
 }
 
 pub struct System<'a>(&'a Vec<Box<Body>>);
@@ -119,64 +136,53 @@ impl<'a> System<'a>{
 		if vector.is_zero() { return }
 
 		if !target.nailed(){
-			// Get the body's properties
-			let collision = target.collision();
-			let scale     = target.dimensions().clone();
-			let position  = target.position().clone();
+			// Scan though every possible pixel the body will be able to collide with
+			let mut distance = vector.clone();
+			while distance != Vector3::new(0.0, 0.0, 0.0){
+				let movement = Vector3::new(
+					if distance.x == 0.0 { 0.0 } else if _modulus(distance.x) < 1.0 { distance.x } else { 1.0 },
+					if distance.y == 0.0 { 0.0 } else if _modulus(distance.y) < 1.0 { distance.y } else { 1.0 },
+					if distance.z == 0.0 { 0.0 } else if _modulus(distance.z) < 1.0 { distance.z } else { 1.0 }
+				);
 
-			// Scan though every pixel in the body that will be able to collide
-			// TODO: Find a more efficient to do collision checking
-			let mut checked: Option<Point3<f64>> = None;
-			for zp in if vector.z == 0.0 { 0..scale.z as usize } else if vector.z.signum() > 0.0 { scale.z as usize - 1..scale.z as usize } else { 0..1 }{
-				for yp in if vector.y == 0.0 { 0..scale.y as usize } else if vector.y.signum() > 0.0 { scale.y as usize - 1..scale.y as usize } else { 0..1 }{
-					for xp in if vector.x == 0.0 { 0..scale.x as usize } else if vector.x.signum() > 0.0 { scale.x as usize - 1..scale.x as usize } else { 0..1 }{
-
-						// Cast a ray from the current pixel position to the target,
-						// checking for any possible collision along the way
-						use collision::Ray3;
-						use cgmath::InnerSpace;
-						let ray = Ray3::new(
-							Point3::new(
-								xp as f64 + position.x,
-								yp as f64 + position.y,
-								zp as f64 + position.z
-							),
-							vector.clone().normalize()
-						);
-
-						let mut destination = Point3::new(vector.x, vector.y, vector.z);
-						for body in self.0{
-							use collision::Intersect;
-							if let Some(intersection) = (ray.clone(), body.aabb().clone()).intersection(){
-								if destination.x + xp as f64 + position.x > intersection.x {
-									destination.x = intersection.x - xp as f64 - position.x;
-								}
-								if destination.y + yp as f64 + position.y > intersection.y {
-									destination.y = intersection.y - yp as f64 - position.y;
-								}
-								if destination.z + zp as f64 + position.z > intersection.z {
-									destination.z = intersection.z - zp as f64 - position.z;
-								}
+				// Check for any collisions
+				let mut checked = vector.clone();
+				for body in self.0{
+					macro_rules! check{
+						($c:ident) => ({
+							// Check for $c collision
+							let mut aabb = target.aabb().clone();
+							aabb.min.$c += movement.$c - 1.0;
+							aabb.max.$c += movement.$c - 1.0;
+							if !aabb_aabb_intersection(&aabb, &body.aabb()){
+								if movement.$c < checked.$c { checked.$c = movement.$c }
+							} else {
+								let moved = match body.collision(){
+									Collision::Air   => movement.$c,
+									Collision::Solid => 0.0,
+									Collision::Fluid(drag) => { distance.$c -= movement.$c; movement.$c / drag },
+									Collision::Ledge(vec) => {
+										if vec.$c.signum() == movement.$c.signum(){
+											movement.$c
+										} else { 0.0 }
+									}
+								};
+								if moved < checked.$c { checked.$c = moved }
 							}
-						}
+						};)
+					};
 
-						if let Some(mut check) = checked{
-							if check.x > destination.x { check.x = destination.x }
-							if check.y > destination.y { check.y = destination.y }
-							if check.z > destination.z { check.z = destination.z }
+					// Check for all axis
+					check!(x); check!(y); check!(z);
+				}
 
-							checked = Some(check)
-						}else{
-							checked = Some(Point3::new(destination.x, destination.y, destination.z))
-						}
+				match checked{
+					Vector3{x: 0.0, y: 0.0, z: 0.0} => break,
+					_ => {
+						distance -= checked;
+						target.translate(checked.x, checked.y, checked.z);
 					}
 				}
-			}
-
-			// Apply movement based on how far the ray traveled
-			match checked {
-				Some(checked) => target.translate(checked.x, checked.y, checked.z),
-				None => target.translate(vector.x, vector.y, vector.z)
 			}
 		}
 	}
